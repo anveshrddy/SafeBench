@@ -129,9 +129,71 @@ def _compute_ap(recall, precision, method='interp'):
     """
 
     # TODO TAIAT C2: Insert the `compute_ap` function you implemented for Challenge 1
+    
     ap = 0.
+
+    ap, _, _, _ = interp_ap(recall, precision, method='interp')
+    
     return ap
 
+def interp_ap(recall, precision, method = 'interp'):
+    """ Compute the average precision, given the recall and precision curves
+    # Arguments
+        recall:    The recall curve (list)
+        precision: The precision curve (list),
+        methods: 'continuous', 'interp'
+    # Returns
+        Average precision, precision curve, recall curve
+    """
+
+    # TODO: Append sentinel values to beginning and end 
+    # Recall should start with 0.0 and end with 1.0
+    # Precision should start with 1.0 and end with 0.0
+    # print(recall)
+    appended_recall = np.concatenate(([0.0], recall, [1.0]))
+    appended_prec_input = np.concatenate(([1.0], precision, [0.0]))
+
+    # Compute the precision envelope
+    appended_prec_input = np.array(appended_prec_input)
+    appended_prec = [np.max(appended_prec_input[i:]) for i in range(len(appended_recall))]              # TODO: get the p(r) = \max_{r'<=r} p(r')
+
+    # Integrate area under curve
+    if method == 'interp':
+      x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
+      ap = np.trapz(np.interp(x, appended_recall, appended_prec), x)
+
+    else:  # 'continuous', you can refer to the computation of AP in this setting when finishing the interp AP calculation
+        i = np.where(appended_recall[1:] != appended_recall[:-1])[0]  # points where x axis (recall) changes
+        ap = np.sum((appended_recall[i + 1] - appended_recall[i]) * appended_prec[i + 1])  # area under curve
+
+    return ap, appended_prec_input, appended_prec, appended_recall
+
+# def compute_ap(df, num_gt, iou_thres):
+#     """ Compute the average precision, given the recall and precision curves
+#     # Arguments
+#         df:         DataFrame inputs containing predicted classes, iou_scores, and confidence
+#         num_gt:     The number of ground truth objects for the corresponding class
+#         iou_thres:  IoU threshold of True Positive (TP) detection
+#     # Returns
+#         Average precision, precision curve, recall curve
+#     """
+#     # Sort detections by decreasing confidence
+#     df = df.sort_values('conf_scores', ascending=False)
+
+#     # Compute precision and recall at each detection
+#     tp = df['iou_scores'] >= iou_thres
+#     fp = df['iou_scores'] <  iou_thres
+
+#     tp_cumsum = np.cumsum(tp)
+#     fp_cumsum = np.cumsum(fp)
+#     recall = tp_cumsum / num_gt
+
+#     precision = tp_cumsum / (tp_cumsum + fp_cumsum)
+
+#     # Compute average precision
+#     ap, prec_raw, prec, recall = interp_ap(recall, precision)
+
+#     return ap, prec_raw, prec, recall
 
 def _get_pr_ap(conf_scores, logits, num_gt, data_id, iou_thres=0.5):
     eps = 1e-8
@@ -141,8 +203,17 @@ def _get_pr_ap(conf_scores, logits, num_gt, data_id, iou_thres=0.5):
     tp_fp = torch.cumsum(logits >= -0., dim=0)
     
     # TODO TAIAT C2: get the precision and recall based on the tp, tp+fp, and tp+fn (num_gt)
-    precision = (...).numpy()
-    recall = (...).numpy()
+    #precision = (...).numpy()
+    #recall = (...).numpy()
+
+    tp = conf_scores >= iou_thres
+    fp = conf_scores <  iou_thres
+
+    tp_cumsum = np.cumsum(tp)
+    fp_cumsum = np.cumsum(fp)
+    recall = tp_cumsum / num_gt
+
+    precision = tp_cumsum / (tp_cumsum + fp_cumsum)
 
     ap = _compute_ap(recall, precision, method='continuous')
     return ap
